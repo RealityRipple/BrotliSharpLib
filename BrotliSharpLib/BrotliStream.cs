@@ -11,13 +11,11 @@ namespace BrotliSharpLib
     /// </summary>
     public unsafe class BrotliStream : Stream {
         private Stream _stream;
-        private CompressionMode _mode;
         private bool _leaveOpen, _disposed;
         private IntPtr _customDictionary = IntPtr.Zero;
         private byte[] _buffer;
         private int _bufferCount, _bufferOffset;
 
-        private Brotli.BrotliEncoderStateStruct _encoderState;
         private Brotli.BrotliDecoderStateStruct _decoderState;
 
         private Brotli.BrotliDecoderResult _lastDecoderState =
@@ -38,26 +36,14 @@ namespace BrotliSharpLib
                 throw new ArgumentOutOfRangeException("mode");
 
             _stream = stream;
-            _mode = mode;
             _leaveOpen = leaveOpen;
 
-            switch (_mode) {
-                case CompressionMode.Decompress:
-                    if (!_stream.CanRead)
-                        throw new ArgumentException("Stream does not support read", "stream");
+            if (!_stream.CanRead)
+                throw new ArgumentException("Stream does not support read", "stream");
 
-                    _decoderState = Brotli.BrotliCreateDecoderState();
-                    Brotli.BrotliDecoderStateInit(ref _decoderState);
-                    _buffer = new byte[0xfff0];
-                    break;
-                case CompressionMode.Compress:
-                    if (!_stream.CanWrite)
-                        throw new ArgumentException("Stream does not support write", "stream");
-
-                    _encoderState = Brotli.BrotliEncoderCreateInstance(null, null, null);
-                    SetQuality(1);
-                    break;
-            }
+            _decoderState = Brotli.BrotliCreateDecoderState();
+            Brotli.BrotliDecoderStateInit(ref _decoderState);
+            _buffer = new byte[0xfff0];
         }
 
         /// <summary>
@@ -79,81 +65,13 @@ namespace BrotliSharpLib
         }
 
         /// <summary>
-        /// Sets the quality for compression.
-        /// </summary>
-        /// <param name="quality">The quality value (a value from 0-11).</param>
-        public void SetQuality(int quality) {
-            if (_mode != CompressionMode.Compress)
-                throw new InvalidOperationException("SetQuality is only valid for compress");
-
-            if (quality < Brotli.BROTLI_MIN_QUALITY || quality > Brotli.BROTLI_MAX_QUALITY)
-                throw new ArgumentOutOfRangeException("quality", "Quality should be a value between " +
-                                                                       Brotli.BROTLI_MIN_QUALITY + "-" + Brotli
-                                                                           .BROTLI_MAX_QUALITY);
-
-            EnsureNotDisposed();
-
-            Brotli.BrotliEncoderSetParameter(ref _encoderState, Brotli.BrotliEncoderParameter.BROTLI_PARAM_QUALITY,
-                (uint) quality);
-        }
-
-        /// <summary>
-        /// Sets the dictionary for compression and decompression.
-        /// </summary>
-        /// <param name="dictionary">The dictionary as a byte array.</param>
-        public void SetCustomDictionary(byte[] dictionary) {
-            if (dictionary == null)
-                throw new ArgumentNullException("dictionary");
-
-            EnsureNotDisposed();
-
-            if (_customDictionary != IntPtr.Zero)
-                Marshal.FreeHGlobal(_customDictionary);
-
-            _customDictionary = Marshal.AllocHGlobal(dictionary.Length);
-            Marshal.Copy(dictionary, 0, _customDictionary, dictionary.Length);
-
-            if (_mode == CompressionMode.Compress) {
-                Brotli.BrotliEncoderSetCustomDictionary(ref _encoderState, dictionary.Length,
-                    (byte*) _customDictionary);
-            }
-            else {
-                Brotli.BrotliDecoderSetCustomDictionary(ref _decoderState, dictionary.Length,
-                    (byte*) _customDictionary);
-            }
-        }
-
-        /// <summary>
-        /// Sets the window size for the encoder
-        /// </summary>
-        /// <param name="windowSize">The window size in bits (a value from 10-24)</param>
-        public void SetWindow(int windowSize) {
-            if (_mode != CompressionMode.Compress)
-                throw new InvalidOperationException("SetWindow is only valid for compress");
-
-            if (windowSize < Brotli.BROTLI_MIN_WINDOW_BITS || windowSize > Brotli.BROTLI_MAX_WINDOW_BITS)
-                throw new ArgumentOutOfRangeException("windowSize", "Window size should be a value between " +
-                                                                          Brotli.BROTLI_MIN_WINDOW_BITS + "-" + Brotli
-                                                                              .BROTLI_MAX_WINDOW_BITS);
-
-            EnsureNotDisposed();
-
-            Brotli.BrotliEncoderSetParameter(ref _encoderState, Brotli.BrotliEncoderParameter.BROTLI_PARAM_LGWIN,
-                (uint) windowSize);
-        }
-
-        /// <summary>
         /// Releases the unmanaged resources used by the <see cref="BrotliStream"/> and optionally releases the managed resources.
         /// </summary>
         /// <param name="disposing"></param>
         protected override void Dispose(bool disposing) {
             if (!_disposed) {
-                FlushCompress(true);
 
-                if (_mode == CompressionMode.Compress)
-                    Brotli.BrotliEncoderDestroyInstance(ref _encoderState);
-                else
-                    Brotli.BrotliDecoderStateCleanup(ref _decoderState);
+                Brotli.BrotliDecoderStateCleanup(ref _decoderState);
                 if (_customDictionary != IntPtr.Zero) {
                     Marshal.FreeHGlobal(_customDictionary);
                     _customDictionary = IntPtr.Zero;
@@ -178,18 +96,7 @@ namespace BrotliSharpLib
         }
 
         private void FlushCompress(bool finish) {
-            if (_mode != CompressionMode.Compress)
-                return;
-
-            if (Brotli.BrotliEncoderIsFinished(ref _encoderState))
-                return;
-
-            var op = finish
-                ? Brotli.BrotliEncoderOperation.BROTLI_OPERATION_FINISH
-                : Brotli.BrotliEncoderOperation.BROTLI_OPERATION_FLUSH;
-
-            byte[] buffer = new byte[0];
-            WriteCore(buffer, 0, 0, op);
+            return;
         }
 
         /// <summary>
@@ -228,9 +135,6 @@ namespace BrotliSharpLib
         /// <param name="count">The maximum number of decompressed bytes to read.</param>
         /// <returns>The number of bytes that were read into the byte array.</returns>
         public override int Read(byte[] buffer, int offset, int count) {
-            if (_mode != CompressionMode.Decompress)
-                throw new InvalidOperationException("Read is only supported in Decompress mode");
-
             EnsureNotDisposed();
             ValidateParameters(buffer, offset, count);
 
@@ -287,41 +191,6 @@ namespace BrotliSharpLib
             return totalWritten;
         }
 
-        private void WriteCore(byte[] buffer, int offset, int count, Brotli.BrotliEncoderOperation operation) {
-            bool flush = operation == Brotli.BrotliEncoderOperation.BROTLI_OPERATION_FLUSH ||
-                         operation == Brotli.BrotliEncoderOperation.BROTLI_OPERATION_FINISH;
-
-            byte[] out_buf = new byte[0x1FFFE];
-            size_t available_in = count, available_out = out_buf.Length;
-            fixed (byte* out_buf_ptr = out_buf)
-            fixed (byte* buf_ptr = buffer) {
-                byte* next_in = buf_ptr + offset;
-                byte* next_out = out_buf_ptr;
-
-                while ((!flush && available_in > 0) || flush) {
-                    if (!Brotli.BrotliEncoderCompressStream(ref _encoderState,
-                        operation, &available_in, &next_in,
-                        &available_out, &next_out, null)) {
-                        throw new InvalidDataException("Compression failed");
-                    }
-
-                    bool hasData = available_out != out_buf.Length;
-                    if (hasData) {
-                        int out_size = (int)(out_buf.Length - available_out);
-                        _stream.Write(out_buf, 0, out_size);
-                        available_out = out_buf.Length;
-                        next_out = out_buf_ptr;
-                    }
-
-                    if (Brotli.BrotliEncoderIsFinished(ref _encoderState))
-                        break;
-
-                    if (!hasData && flush)
-                        break;
-                }
-            }
-        }
-
         /// <summary>
         /// Writes compressed bytes to the underlying stream from the specified byte array.
         /// </summary>
@@ -329,12 +198,7 @@ namespace BrotliSharpLib
         /// <param name="offset">The byte offset in <paramref name="buffer"/> from which the bytes will be read.</param>
         /// <param name="count">The maximum number of bytes to write.</param>
         public override void Write(byte[] buffer, int offset, int count) {
-            if (_mode != CompressionMode.Compress)
-                throw new InvalidOperationException("Write is only supported in Compress mode");
-
-            EnsureNotDisposed();
-            ValidateParameters(buffer, offset, count);
-            WriteCore(buffer, offset, count, Brotli.BrotliEncoderOperation.BROTLI_OPERATION_PROCESS);
+            throw new InvalidOperationException("Write is only supported in Compress mode");
         }
 
         /// <summary>
@@ -345,7 +209,7 @@ namespace BrotliSharpLib
                 if (_stream == null)
                     return false;
 
-                return _mode == CompressionMode.Decompress && _stream.CanRead;
+                return _stream.CanRead;
             }
         }
 
@@ -365,10 +229,7 @@ namespace BrotliSharpLib
         /// </summary>
         public override bool CanWrite {
             get {
-                if (_stream == null)
-                    return false;
-
-                return _mode == CompressionMode.Compress && _stream.CanWrite;
+                return false;
             }
         }
 
