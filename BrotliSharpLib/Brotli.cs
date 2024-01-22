@@ -18,13 +18,13 @@ namespace BrotliSharpLib {
         /// <returns>The byte array in compressed form</returns>
         public static unsafe byte[] DecompressBuffer(byte[] buffer, int offset, int length, byte[] customDictionary = null) {
             if (buffer == null)
-                throw new ArgumentNullException(nameof(buffer));
+                throw new ArgumentNullException("buffer");
 
             if (offset < 0)
-                throw new ArgumentOutOfRangeException(nameof(offset));
+                throw new ArgumentOutOfRangeException("offset");
 
             if (length < 0)
-                throw new ArgumentOutOfRangeException(nameof(length));
+                throw new ArgumentOutOfRangeException("length");
 
             if (offset + length > buffer.Length)
                 throw new IndexOutOfRangeException("Offset and length exceed the range of the buffer");
@@ -100,13 +100,13 @@ namespace BrotliSharpLib {
         public static unsafe byte[] CompressBuffer(byte[] buffer, int offset, int length, int quality = -1,
             int lgwin = -1, byte[] customDictionary = null) {
             if (buffer == null)
-                throw new ArgumentNullException(nameof(buffer));
+                throw new ArgumentNullException("buffer");
 
             if (offset < 0)
-                throw new ArgumentOutOfRangeException(nameof(offset));
+                throw new ArgumentOutOfRangeException("offset");
 
             if (length < 0)
-                throw new ArgumentOutOfRangeException(nameof(length));
+                throw new ArgumentOutOfRangeException("length");
 
             if (offset + length > buffer.Length)
                 throw new IndexOutOfRangeException("Offset and length exceed the range of the buffer");

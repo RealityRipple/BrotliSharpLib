@@ -32,10 +32,10 @@ namespace BrotliSharpLib
         /// <param name="leaveOpen"><c>true</c> to leave the stream open after disposing the <see cref="BrotliStream"/> object; otherwise, <c>false</c>.</param>
         public BrotliStream(Stream stream, CompressionMode mode, bool leaveOpen) {
             if (stream == null)
-                throw new ArgumentNullException(nameof(stream));
+                throw new ArgumentNullException("stream");
 
             if (CompressionMode.Compress != mode && CompressionMode.Decompress != mode)
-                throw new ArgumentOutOfRangeException(nameof(mode));
+                throw new ArgumentOutOfRangeException("mode");
 
             _stream = stream;
             _mode = mode;
@@ -44,7 +44,7 @@ namespace BrotliSharpLib
             switch (_mode) {
                 case CompressionMode.Decompress:
                     if (!_stream.CanRead)
-                        throw new ArgumentException("Stream does not support read", nameof(stream));
+                        throw new ArgumentException("Stream does not support read", "stream");
 
                     _decoderState = Brotli.BrotliCreateDecoderState();
                     Brotli.BrotliDecoderStateInit(ref _decoderState);
@@ -52,7 +52,7 @@ namespace BrotliSharpLib
                     break;
                 case CompressionMode.Compress:
                     if (!_stream.CanWrite)
-                        throw new ArgumentException("Stream does not support write", nameof(stream));
+                        throw new ArgumentException("Stream does not support write", "stream");
 
                     _encoderState = Brotli.BrotliEncoderCreateInstance(null, null, null);
                     SetQuality(1);
@@ -87,7 +87,7 @@ namespace BrotliSharpLib
                 throw new InvalidOperationException("SetQuality is only valid for compress");
 
             if (quality < Brotli.BROTLI_MIN_QUALITY || quality > Brotli.BROTLI_MAX_QUALITY)
-                throw new ArgumentOutOfRangeException(nameof(quality), "Quality should be a value between " +
+                throw new ArgumentOutOfRangeException("quality", "Quality should be a value between " +
                                                                        Brotli.BROTLI_MIN_QUALITY + "-" + Brotli
                                                                            .BROTLI_MAX_QUALITY);
 
@@ -103,7 +103,7 @@ namespace BrotliSharpLib
         /// <param name="dictionary">The dictionary as a byte array.</param>
         public void SetCustomDictionary(byte[] dictionary) {
             if (dictionary == null)
-                throw new ArgumentNullException(nameof(dictionary));
+                throw new ArgumentNullException("dictionary");
 
             EnsureNotDisposed();
 
@@ -132,7 +132,7 @@ namespace BrotliSharpLib
                 throw new InvalidOperationException("SetWindow is only valid for compress");
 
             if (windowSize < Brotli.BROTLI_MIN_WINDOW_BITS || windowSize > Brotli.BROTLI_MAX_WINDOW_BITS)
-                throw new ArgumentOutOfRangeException(nameof(windowSize), "Window size should be a value between " +
+                throw new ArgumentOutOfRangeException("windowSize", "Window size should be a value between " +
                                                                           Brotli.BROTLI_MIN_WINDOW_BITS + "-" + Brotli
                                                                               .BROTLI_MAX_WINDOW_BITS);
 
@@ -352,7 +352,13 @@ namespace BrotliSharpLib
         /// <summary>
         /// Gets a value indicating whether the stream supports seeking.
         /// </summary>
-        public override bool CanSeek => false;
+        public override bool CanSeek
+        {
+            get
+            {
+                return false;
+            }
+        }
 
         /// <summary>
         /// Gets a value indicating whether the stream supports writing.
